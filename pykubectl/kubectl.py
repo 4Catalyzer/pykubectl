@@ -12,8 +12,7 @@ class KubeCtl(object):
         cmd = '{} {}'.format(self.kubectl, command)
 
         if definition:
-            raw = json.dumps(definition)
-            pre = 'echo \'{}\''.format(raw)
+            pre = 'echo \'{}\''.format(definition)
             cmd = '{} | {} -f -'.format(pre, cmd)
 
         logging.debug('executing {}'.format(cmd))
