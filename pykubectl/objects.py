@@ -1,21 +1,24 @@
 import copy
 import json
 import logging
-from string import Template
 from time import sleep
 import yaml
 import uuid
 
 from .exceptions import KuberentesException
+from .utils import render_definition
 
 
 class KubeObject(object):
     kind = ''
 
+    @property
+    def raw(self):
+        return json.dumps(self.definition)
+
     @classmethod
     def from_file(cls, file_name, kubectl, **keys):
-        with open(file_name, mode='r') as file:
-            raw = Template(file.read()).substitute(keys)
+        raw = render_definition(file_name, **keys)
 
         try:
             data = json.loads(raw)
@@ -46,18 +49,18 @@ class KubeObject(object):
         self.name = self.definition['metadata']['name']
 
     def get(self, *args, **kwargs):
-        return self.kubectl.get(self.definition, *args, **kwargs)[0]
+        return self.kubectl.get(self.raw, *args, **kwargs)[0]
 
     def delete(self, *args, **kwargs):
         logging.info('%s: deleting', self)
-        return self.kubectl.delete(self.definition, *args, **kwargs)
+        return self.kubectl.delete(self.raw, *args, **kwargs)
 
     def apply(self, *args, **kwargs):
         logging.info('%s: applying', self)
-        return self.kubectl.apply(self.definition, *args, **kwargs)
+        return self.kubectl.apply(self.raw, *args, **kwargs)
 
     def describe(self, *args, **kwargs):
-        return self.kubectl.apply(self.definition, *args, **kwargs)
+        return self.kubectl.apply(self.raw, *args, **kwargs)
 
 
 class Deployment(KubeObject):
@@ -96,7 +99,7 @@ class Deployment(KubeObject):
         if override_command:
             spec['containers'][0]['command'] = override_command
 
-        definition = {
+        pod_definition = {
             'apiVersion': 'v1',
             'kind': 'Pod',
             'spec': spec,
@@ -105,7 +108,7 @@ class Deployment(KubeObject):
             }
         }
 
-        pod = Pod(definition, self.kubectl)
+        pod = Pod(pod_definition, self.kubectl)
         pod.execute()
 
 
