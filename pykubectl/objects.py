@@ -5,8 +5,17 @@ from time import sleep
 import yaml
 import uuid
 
-from .exceptions import KuberentesException
+from .exceptions import KubernetesException
 from .utils import render_definition
+
+
+def _load_raw(file_name, keys):
+    raw = render_definition(file_name, **(keys or {}))
+    try:
+        data = json.loads(raw)
+    except ValueError:
+        data = yaml.load(raw)
+    return data
 
 
 class KubeObject(object):
@@ -18,13 +27,7 @@ class KubeObject(object):
 
     @classmethod
     def from_file(cls, file_name, kubectl, **keys):
-        raw = render_definition(file_name, **keys)
-
-        try:
-            data = json.loads(raw)
-        except ValueError:
-            data = yaml.load(raw)
-
+        data = _load_raw(file_name, keys)
         self = cls(data, kubectl)
         return self
 
@@ -44,7 +47,7 @@ class KubeObject(object):
         if not self.kind:
             self.kind = kind
         elif kind != self.kind:
-            raise KuberentesException('Invalid kind {} provided'.format(kind))
+            raise KubernetesException('Invalid kind {} provided'.format(kind))
 
         self.name = self.definition['metadata']['name']
 
@@ -89,15 +92,19 @@ class Deployment(KubeObject):
             attempts -= 1
 
         self.undo(safe=True)
-        raise KuberentesException('deployment of {} timed out'.format(self))
+        raise KubernetesException('deployment of {} timed out'.format(self))
 
-    def execute_pod(self, name, override_command=None):
+    def execute_pod(self, name, override_command=None, override_env=None, keys=None):
         spec = copy.deepcopy(self.definition['spec']['template']['spec'])
         id = str(uuid.uuid4())[:8]
 
         spec['restartPolicy'] = 'OnFailure'
         if override_command:
             spec['containers'][0]['command'] = override_command
+
+        if override_env:
+            env = _load_raw(override_env, keys)
+            spec['containers'][0]['env'] += env
 
         pod_definition = {
             'apiVersion': 'v1',
@@ -128,7 +135,7 @@ class Pod(KubeObject):
             phase = self.get()['status']['phase']
             if phase == 'Failed':
                 self._abort()
-                raise KuberentesException('{} execution failed'.format(self))
+                raise KubernetesException('{} execution failed'.format(self))
             if phase == 'Succeeded':
                 logging.info('successfully completed')
                 return
@@ -139,4 +146,4 @@ class Pod(KubeObject):
             attempts -= 1
 
         self._abort()
-        raise KuberentesException('{} execution timed out'.format(self))
+        raise KubernetesException('{} execution timed out'.format(self))
