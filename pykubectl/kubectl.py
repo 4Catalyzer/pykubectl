@@ -31,7 +31,7 @@ class KubeCtl(object):
         return self.execute('delete', *args, **kwargs)
 
     def get(self, *args, **kwargs):
-        result = self.execute('get -o json', *args, **kwargs)
+        result = self.execute('get -o json', *args, **kwargs).decode()
         return json.loads(result)['items']
 
     def describe(self, *args, **kwargs):
