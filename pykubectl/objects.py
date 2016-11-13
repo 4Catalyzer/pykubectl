@@ -95,7 +95,7 @@ class Deployment(KubeObject):
         spec = copy.deepcopy(self.definition['spec']['template']['spec'])
         id = str(uuid.uuid4())[:8]
 
-        spec['restartPolicy'] = 'OnFailure'
+        spec['restartPolicy'] = 'Never'
         if override_command:
             spec['containers'][0]['command'] = override_command
 
