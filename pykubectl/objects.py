@@ -5,7 +5,7 @@ from time import sleep
 import yaml
 import uuid
 
-from .exceptions import KuberentesException
+from .exceptions import KuberntesException
 from .utils import render_definition
 
 
@@ -44,7 +44,7 @@ class KubeObject(object):
         if not self.kind:
             self.kind = kind
         elif kind != self.kind:
-            raise KuberentesException('Invalid kind {} provided'.format(kind))
+            raise KuberntesException('Invalid kind {} provided'.format(kind))
 
         self.name = self.definition['metadata']['name']
 
@@ -89,7 +89,7 @@ class Deployment(KubeObject):
             attempts -= 1
 
         self.undo(safe=True)
-        raise KuberentesException('deployment of {} timed out'.format(self))
+        raise KuberntesException('deployment of {} timed out'.format(self))
 
     def execute_pod(self, name, override_command=None):
         spec = copy.deepcopy(self.definition['spec']['template']['spec'])
@@ -128,7 +128,7 @@ class Pod(KubeObject):
             phase = self.get()['status']['phase']
             if phase == 'Failed':
                 self._abort()
-                raise KuberentesException('{} execution failed'.format(self))
+                raise KuberntesException('{} execution failed'.format(self))
             if phase == 'Succeeded':
                 logging.info('successfully completed')
                 return
@@ -139,4 +139,4 @@ class Pod(KubeObject):
             attempts -= 1
 
         self._abort()
-        raise KuberentesException('{} execution timed out'.format(self))
+        raise KuberntesException('{} execution timed out'.format(self))

@@ -1,2 +1,2 @@
-class KuberentesException(Exception):
+class KuberntesException(Exception):
     pass
