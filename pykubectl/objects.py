@@ -60,7 +60,7 @@ class KubeObject(object):
         return self.kubectl.apply(self.raw, *args, **kwargs)
 
     def describe(self, *args, **kwargs):
-        return self.kubectl.apply(self.raw, *args, **kwargs)
+        return self.kubectl.describe(self.raw, *args, **kwargs)
 
 
 class Deployment(KubeObject):
@@ -116,8 +116,8 @@ class Pod(KubeObject):
     kind = 'Pod'
 
     def _abort(self):
+        logging.info(self.logs(safe=True))
         self.delete(safe=True)
-        logging.info(self.describe(safe=True))
 
     def execute(self, attempts=30):
         logging.info('%s: execution initiated', self)
@@ -140,3 +140,7 @@ class Pod(KubeObject):
 
         self._abort()
         raise KubernetesException('{} execution timed out'.format(self))
+
+    def logs(self, *args, **kwargs):
+        cmd = 'logs {}'.format(self.name)
+        return self.kubectl.execute(cmd, *args, **kwargs)
