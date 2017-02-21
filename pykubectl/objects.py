@@ -2,11 +2,11 @@ import copy
 import json
 import logging
 from time import sleep
-import yaml
 import uuid
 
 from .exceptions import KubernetesException
 from .utils import render_definition
+from .yaml import Loader
 
 
 class KubeObject(object):
@@ -17,13 +17,16 @@ class KubeObject(object):
         return json.dumps(self.definition)
 
     @classmethod
-    def from_file(cls, file_name, kubectl, **keys):
+    def from_file(cls, file_name, kubectl, anchors_file_name=None, **keys):
         raw = render_definition(file_name, **keys)
+        yaml_loader = Loader(raw)
 
-        try:
-            data = json.loads(raw)
-        except ValueError:
-            data = yaml.load(raw)
+        if anchors_file_name is not None:
+            yaml_raw = render_definition(anchors_file_name, **keys)
+            anchors_yaml_loader = Loader(yaml_raw)
+            yaml_loader.anchors = anchors_yaml_loader.get_node_anchors()
+
+        data = yaml_loader.get_single_data()
 
         self = cls(data, kubectl)
         return self
