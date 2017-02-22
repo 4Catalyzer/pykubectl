@@ -6,7 +6,7 @@ import uuid
 
 from .exceptions import KubernetesException
 from .utils import render_definition
-from .yaml import Loader
+from .yaml_utils import Loader
 
 
 class KubeObject(object):
