@@ -94,13 +94,15 @@ class Deployment(KubeObject):
         self.undo(safe=True)
         raise KubernetesException('deployment of {} timed out'.format(self))
 
-    def execute_pod(self, name, override_command=None):
+    def execute_pod(self, name, override_command=None, **extra_overrides):
         spec = copy.deepcopy(self.definition['spec']['template']['spec'])
         id = str(uuid.uuid4())[:8]
 
         spec['restartPolicy'] = 'Never'
         if override_command:
             spec['containers'][0]['command'] = override_command
+
+        spec['containers'][0].update(extra_overrides)
 
         pod_definition = {
             'apiVersion': 'v1',
