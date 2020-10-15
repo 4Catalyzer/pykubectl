@@ -10,7 +10,7 @@ from .yaml_utils import Loader
 
 
 class KubeObject(object):
-    kind = ''
+    kind = ""
 
     @property
     def raw(self):
@@ -42,24 +42,24 @@ class KubeObject(object):
         self.definition = definition
         self.kubectl = kubectl
 
-        kind = definition['kind']
+        kind = definition["kind"]
 
         if not self.kind:
             self.kind = kind
         elif kind != self.kind:
-            raise KubernetesException('Invalid kind {} provided'.format(kind))
+            raise KubernetesException("Invalid kind {} provided".format(kind))
 
-        self.name = self.definition['metadata']['name']
+        self.name = self.definition["metadata"]["name"]
 
     def get(self, *args, **kwargs):
         return self.kubectl.get(self.raw, *args, **kwargs)[0]
 
     def delete(self, *args, **kwargs):
-        logging.info('%s: deleting', self)
+        logging.info("%s: deleting", self)
         return self.kubectl.delete(self.raw, *args, **kwargs)
 
     def apply(self, *args, **kwargs):
-        logging.info('%s: applying', self)
+        logging.info("%s: applying", self)
         return self.kubectl.apply(self.raw, *args, **kwargs)
 
     def describe(self, *args, **kwargs):
@@ -67,50 +67,50 @@ class KubeObject(object):
 
 
 class Deployment(KubeObject):
-    kind = 'Deployment'
+    kind = "Deployment"
 
     def undo(self, *args, **kwargs):
-        logging.warn('%s: rolling back last deployment', self)
-        cmd = 'rollout undo deployment/{}'.format(self.name)
+        logging.warn("%s: rolling back last deployment", self)
+        cmd = "rollout undo deployment/{}".format(self.name)
         self.kubectl.execute(cmd, *args, **kwargs)
 
     def deploy(self, attempts=30):
-        logging.info('%s: Deployment initiated', self)
+        logging.info("%s: Deployment initiated", self)
         self.apply()
 
         while attempts >= 0:
-            status = self.get()['status']
-            available = status.get('availableReplicas', 0)
-            updated = status.get('updatedReplicas', 0)
+            status = self.get()["status"]
+            available = status.get("availableReplicas", 0)
+            updated = status.get("updatedReplicas", 0)
 
             if available > 0 and updated > 0:
-                logging.info('%s: successfully deployed', self)
+                logging.info("%s: successfully deployed", self)
                 return
 
-            logging.info('%s: waiting for first pod to be deployed...', self)
+            logging.info("%s: waiting for first pod to be deployed...", self)
             sleep(10)
             attempts -= 1
 
         self.undo(safe=True)
-        raise KubernetesException('deployment of {} timed out'.format(self))
+        raise KubernetesException("deployment of {} timed out".format(self))
 
     def execute_pod(self, name, override_command=None, **extra_overrides):
-        spec = copy.deepcopy(self.definition['spec']['template']['spec'])
+        spec = copy.deepcopy(self.definition["spec"]["template"]["spec"])
         id = str(uuid.uuid4())[:8]
 
-        spec['restartPolicy'] = 'Never'
+        spec["restartPolicy"] = "Never"
         if override_command:
-            spec['containers'][0]['command'] = override_command
+            spec["containers"][0]["command"] = override_command
 
-        spec['containers'][0].update(extra_overrides)
+        spec["containers"][0].update(extra_overrides)
 
         pod_definition = {
-            'apiVersion': 'v1',
-            'kind': 'Pod',
-            'spec': spec,
-            'metadata': {
-                'name': '{}-{}-{}'.format(self.name, name, id),
-            }
+            "apiVersion": "v1",
+            "kind": "Pod",
+            "spec": spec,
+            "metadata": {
+                "name": "{}-{}-{}".format(self.name, name, id),
+            },
         }
 
         pod = Pod(pod_definition, self.kubectl)
@@ -118,34 +118,28 @@ class Deployment(KubeObject):
 
 
 class Pod(KubeObject):
-    kind = 'Pod'
-
-    def _abort(self):
-        logging.info(self.logs(safe=True))
-        self.delete(safe=True)
+    kind = "Pod"
 
     def execute(self, attempts=30):
-        logging.info('%s: execution initiated', self)
+        logging.info("%s: execution initiated", self)
 
         self.apply()
 
         while attempts >= 0:
-            phase = self.get()['status']['phase']
-            if phase == 'Failed':
-                self._abort()
-                raise KubernetesException('{} execution failed'.format(self))
-            if phase == 'Succeeded':
-                logging.info('successfully completed')
+            phase = self.get()["status"]["phase"]
+            if phase == "Failed":
+                raise KubernetesException("{} execution failed".format(self))
+            if phase == "Succeeded":
+                logging.info("successfully completed")
                 return
 
-            logging.info('%s is %s...', self, phase)
+            logging.info("%s is %s...", self, phase)
 
             sleep(10)
             attempts -= 1
 
-        self._abort()
-        raise KubernetesException('{} execution timed out'.format(self))
+        raise KubernetesException("{} execution timed out".format(self))
 
     def logs(self, *args, **kwargs):
-        cmd = 'logs {}'.format(self.name)
+        cmd = "logs {}".format(self.name)
         return self.kubectl.execute(cmd, *args, **kwargs)
