@@ -3,26 +3,27 @@ import logging
 from subprocess import CalledProcessError, check_output
 
 
-class KubeCtl(object):
+class KubeCtl:
     def __init__(self, bin='kubectl', global_flags=''):
-        super(KubeCtl, self).__init__()
-        self.kubectl = '{} {}'.format(bin, global_flags)
+        super().__init__()
+        self.kubectl = f'{bin} {global_flags}'
 
     def execute(self, command, definition=None, safe=False):
-        cmd = '{} {}'.format(self.kubectl, command)
+        cmd = f'{self.kubectl} {command}'
 
         if definition:
-            pre = 'echo \'{}\''.format(definition)
-            cmd = '{} | {} -f -'.format(pre, cmd)
+            cmd = f'cat <<EOF | {cmd} -f -\n' \
+                  f'{definition}\n' \
+                  f'EOF'
 
-        logging.debug('executing {}'.format(cmd))
+        logging.debug(f'executing {cmd}')
 
         try:
             return check_output(cmd, shell=True)
         except CalledProcessError as e:
             if not safe:
                 raise e
-            logging.warn('Command {} failed, swallowing'.format(command))
+            logging.warn(f'Command {command} failed, swallowing')
 
     def apply(self, *args, **kwargs):
         return self.execute('apply', *args, **kwargs)
