@@ -35,7 +35,6 @@ class KubeCtl:
 
     def get(self, *args, **kwargs):
         result = self.execute('get -o json', *args, **kwargs).decode()
-        print(f"result is: {json.loads(result)}")
         return json.loads(result)
 
     def describe(self, *args, **kwargs):
