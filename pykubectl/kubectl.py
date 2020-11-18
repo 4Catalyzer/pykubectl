@@ -16,7 +16,7 @@ class KubeCtl:
             if definition:
                 temp_file.write(definition)
                 temp_file.flush()
-                cmd = f'{cmd} -f {temp_file.name}' \
+                cmd = f'{cmd} -f {temp_file.name}'
 
             logging.debug(f'executing {cmd}')
 
