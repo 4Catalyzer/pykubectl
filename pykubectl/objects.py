@@ -52,7 +52,7 @@ class KubeObject:
         self.name = self.definition["metadata"]["name"]
 
     def get(self, *args, **kwargs):
-        return self.kubectl.get(self.raw, *args, **kwargs)[0]
+        return self.kubectl.get(self.raw, *args, **kwargs)
 
     def delete(self, *args, **kwargs):
         logging.info("%s: deleting", self)
