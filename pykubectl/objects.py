@@ -9,7 +9,7 @@ from .utils import render_definition
 from .yaml_utils import Loader
 
 
-class KubeObject(object):
+class KubeObject:
     kind = ""
 
     @property
@@ -32,13 +32,13 @@ class KubeObject(object):
         return self
 
     def __repr__(self):
-        return "{kind}[{name}]".format(kind=self.kind, name=self.name)
+        return f"{self.kind}[{self.name}]"
 
     def __str__(self):
         return self.__repr__()
 
     def __init__(self, definition, kubectl):
-        super(KubeObject, self).__init__()
+        super().__init__()
         self.definition = definition
         self.kubectl = kubectl
 
@@ -47,12 +47,12 @@ class KubeObject(object):
         if not self.kind:
             self.kind = kind
         elif kind != self.kind:
-            raise KubernetesException("Invalid kind {} provided".format(kind))
+            raise KubernetesException(f"Invalid kind {kind} provided")
 
         self.name = self.definition["metadata"]["name"]
 
     def get(self, *args, **kwargs):
-        return self.kubectl.get(self.raw, *args, **kwargs)[0]
+        return self.kubectl.get(self.raw, *args, **kwargs)
 
     def delete(self, *args, **kwargs):
         logging.info("%s: deleting", self)
@@ -71,7 +71,7 @@ class Deployment(KubeObject):
 
     def undo(self, *args, **kwargs):
         logging.warn("%s: rolling back last deployment", self)
-        cmd = "rollout undo deployment/{}".format(self.name)
+        cmd = f"rollout undo deployment/{self.name}"
         self.kubectl.execute(cmd, *args, **kwargs)
 
     def deploy(self, attempts=30):
@@ -92,7 +92,7 @@ class Deployment(KubeObject):
             attempts -= 1
 
         self.undo(safe=True)
-        raise KubernetesException("deployment of {} timed out".format(self))
+        raise KubernetesException(f"deployment of {self} timed out")
 
     def execute_pod(self, name, override_command=None, **extra_overrides):
         spec = copy.deepcopy(self.definition["spec"]["template"]["spec"])
@@ -109,7 +109,7 @@ class Deployment(KubeObject):
             "kind": "Pod",
             "spec": spec,
             "metadata": {
-                "name": "{}-{}-{}".format(self.name, name, id),
+                "name": f"{self.name}-{name}-{id}",
             },
         }
 
@@ -128,7 +128,7 @@ class Pod(KubeObject):
         while attempts >= 0:
             phase = self.get()["status"]["phase"]
             if phase == "Failed":
-                raise KubernetesException("{} execution failed".format(self))
+                raise KubernetesException(f"{self} execution failed")
             if phase == "Succeeded":
                 logging.info("successfully completed")
                 return
@@ -138,8 +138,8 @@ class Pod(KubeObject):
             sleep(10)
             attempts -= 1
 
-        raise KubernetesException("{} execution timed out".format(self))
+        raise KubernetesException(f"{self} execution timed out")
 
     def logs(self, *args, **kwargs):
-        cmd = "logs {}".format(self.name)
+        cmd = f"logs {self.name}"
         return self.kubectl.execute(cmd, *args, **kwargs)
