@@ -9,7 +9,7 @@ class KubeCtl:
         super().__init__()
         self.kubectl = f'{bin} {global_flags}'
 
-    def execute(self, command, definition=None, safe=False):
+    def execute(self, command, definition=None, safe=False, validate=False):
         cmd = f'{self.kubectl} {command}'
 
         with tempfile.NamedTemporaryFile('w') as temp_file:
@@ -19,6 +19,9 @@ class KubeCtl:
                 cmd = f'{cmd} -f {temp_file.name}'
 
             logging.debug(f'executing {cmd}')
+
+            if validate:
+                cmd = f"{cmd} --dry-run --validate"
 
             try:
                 return check_output(cmd, shell=True)
