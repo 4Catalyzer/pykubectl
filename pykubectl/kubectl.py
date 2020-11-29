@@ -21,7 +21,7 @@ class KubeCtl:
             logging.debug(f'executing {cmd}')
 
             if validate:
-                cmd = f"{cmd} --dry-run --validate"
+                cmd = f"{cmd} --dry-run=client --validate"
 
             try:
                 return check_output(cmd, shell=True)
