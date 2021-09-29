@@ -128,7 +128,7 @@ class Pod(KubeObject):
         while attempts >= 0:
             phase = self.get()["status"]["phase"]
             if phase == "Failed":
-                raise KubernetesException("{} execution failed".format(self))
+                raise KubernetesException(f"{self} execution failed")
             if phase == "Succeeded":
                 logging.info("successfully completed")
                 logging.debug(self.logs(ignore_errors=True))

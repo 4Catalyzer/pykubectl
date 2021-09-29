@@ -1,5 +1,6 @@
 import json
 import logging
+import tempfile
 from subprocess import CalledProcessError, check_output
 import warnings
 
@@ -12,24 +13,26 @@ class KubeCtl:
     def execute(self, command, definition=None, safe=False, ignore_errors=False):
         cmd = f"{self.kubectl} {command}"
 
-        if definition:
-            pre = f"echo '{definition}'"
-            cmd = f"{pre} | {cmd} -f -"
+        with tempfile.NamedTemporaryFile("w") as temp_file:
+            if definition:
+                temp_file.write(definition)
+                temp_file.flush()
+                cmd = f"{cmd} -f {temp_file.name}"
 
-        logging.debug(f"executing {cmd}")
+            logging.debug(f"executing {cmd}")
 
-        try:
-            return check_output(cmd, shell=True)
-        except CalledProcessError as e:
-            if safe:
-                warnings.warn(
-                    "Use ignore_errors instead of safe",
-                    DeprecationWarning,
-                    stacklevel=2,
-                )
-            if not (safe or ignore_errors):
-                raise e
-            logging.warn(f"Command {command} failed, swallowing")
+            try:
+                return check_output(cmd, shell=True)
+            except CalledProcessError as e:
+                if safe:
+                    warnings.warn(
+                        "Use ignore_errors instead of safe",
+                        DeprecationWarning,
+                        stacklevel=2,
+                    )
+                if not (safe or ignore_errors):
+                    raise e
+                logging.warn(f"Command {command} failed, swallowing")
 
     def apply(self, *args, **kwargs):
         return self.execute("apply", *args, **kwargs)

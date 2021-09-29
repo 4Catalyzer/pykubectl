@@ -24,7 +24,7 @@ def system(command):
 
 setup(
     name="PyKubeCtl",
-    version='0.2.0',
+    version='0.4.0',
     description="A python bridge to kubectl",
     url='https://github.com/4Catalyzer/pykubectl',
     author="Giacomo Tagliabue",
@@ -35,7 +35,6 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Operating System :: OS Independent',
         'Programming Language :: Python',
-        'Programming Language :: Python :: 2',
         'Programming Language :: Python :: 3',
     ),
     keywords='kubernetes docker ci cd',
