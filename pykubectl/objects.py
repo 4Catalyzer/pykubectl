@@ -116,7 +116,7 @@ class Deployment(KubeObject):
         pod = Pod(pod_definition, self.kubectl)
         pod.execute()
         
-    def execute_job(self, name, command, ttl=30, backoffLimit=0, **extra_overrides):
+    def execute_job(self, name, command, ttlSeconds=30, backoffLimit=0, **extra_overrides):
         spec = copy.deepcopy(self.definition["spec"]["template"]["spec"])
         id = str(uuid.uuid4())[:8]
         
@@ -127,7 +127,7 @@ class Deployment(KubeObject):
                 "name": f"{name}-{id}"
             },
             "spec": {
-                "ttlSecondsAfterFinished": ttl,
+                "ttlSecondsAfterFinished": ttlSeconds,
                 "backoffLimit": backoffLimit,
                 "template": {
                     "spec": {
@@ -177,7 +177,7 @@ class Pod(KubeObject):
         cmd = f"logs {self.name}"
         return self.kubectl.execute(cmd, *args, **kwargs)
 
-class Job(Pod):
+class Job(KubeObject):
     kind = "Job"
 
     def execute(self, attempts=30):
@@ -188,9 +188,7 @@ class Job(Pod):
         while attempts >= 0:
             jobStatus = self.get()["status"]
             if (isinstance(jobStatus.get("failed"), int) and jobStatus.get("failed") > 0):
-                colorRed = '\033[91m'
-                colorEnd = '\033[0m'
-                logs = f"{colorRed}>> " + self.logs().decode("utf-8").replace("\n", "\n>>\t") + colorEnd
+                logs = ">> " + self.logs().decode("utf-8").replace("\n", "\n>>\t")
                 raise KubernetesException(f"{self} execution failed, see logs below\n{logs}")
             if (jobStatus.get("succeeded") == 1):
                 return logging.info("successfully completed")
