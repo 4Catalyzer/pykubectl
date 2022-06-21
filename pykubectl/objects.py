@@ -115,6 +115,39 @@ class Deployment(KubeObject):
 
         pod = Pod(pod_definition, self.kubectl)
         pod.execute()
+        
+    def execute_job(self, name, command, ttlSeconds=30, backoffLimit=0, **extra_overrides):
+        spec = copy.deepcopy(self.definition["spec"]["template"]["spec"])
+        id = str(uuid.uuid4())[:8]
+        
+        job_definition = {
+            "apiVersion": "batch/v1",
+            "kind": "Job",
+            "metadata": {
+                "name": f"{name}-{id}"
+            },
+            "spec": {
+                "ttlSecondsAfterFinished": ttlSeconds,
+                "backoffLimit": backoffLimit,
+                "template": {
+                    "spec": {
+                        "restartPolicy": "Never",
+                        "containers": [{
+                            "name": f"{name}-{id}",
+                            "image": spec["containers"][0]["image"],
+                            "command": command,
+                            "env": spec["containers"][0]["env"]
+                        }]
+                    }
+                }
+            }
+            
+        }
+        job_definition["spec"]["template"]["spec"]["containers"][0].update(extra_overrides)
+        
+        job = Job(job_definition, self.kubectl)
+        job.execute()
+        
 
 
 class Pod(KubeObject):
@@ -142,4 +175,29 @@ class Pod(KubeObject):
 
     def logs(self, *args, **kwargs):
         cmd = f"logs {self.name}"
+        return self.kubectl.execute(cmd, *args, **kwargs)
+
+class Job(KubeObject):
+    kind = "Job"
+
+    def execute(self, attempts=30):
+        logging.info("%s: execution initiated", self)
+
+        self.apply()
+
+        while attempts >= 0:
+            jobStatus = self.get()["status"]
+            if (isinstance(jobStatus.get("failed"), int) and jobStatus.get("failed") > 0):
+                logs = ">> " + self.logs().decode("utf-8").replace("\n", "\n>>\t")
+                raise KubernetesException(f"{self} execution failed, see logs below\n{logs}")
+            if (jobStatus.get("succeeded") == 1):
+                return logging.info("successfully completed")
+
+            sleep(10)
+            attempts -= 1
+
+        raise KubernetesException(f"{self} execution timed out")
+    
+    def logs(self, *args, **kwargs):
+        cmd = f"logs jobs/{self.name}"
         return self.kubectl.execute(cmd, *args, **kwargs)
