@@ -24,7 +24,7 @@ def system(command):
 
 setup(
     name="PyKubeCtl",
-    version='1.0.0',
+    version='1.0.1',
     description="A python bridge to kubectl",
     url='https://github.com/4Catalyzer/pykubectl',
     author="Giacomo Tagliabue",
