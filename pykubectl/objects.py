@@ -124,7 +124,7 @@ class Deployment(KubeObject):
             "apiVersion": "batch/v1",
             "kind": "Job",
             "metadata": {
-                "name": f"{name}-{id}"
+                "name": f"{self.name}-{name}-{id}"
             },
             "spec": {
                 "ttlSecondsAfterFinished": ttlSeconds,
@@ -133,7 +133,7 @@ class Deployment(KubeObject):
                     "spec": {
                         "restartPolicy": "Never",
                         "containers": [{
-                            "name": f"{name}-{id}",
+                            "name": f"{self.name}-{name}-{id}",
                             "image": spec["containers"][0]["image"],
                             "command": command,
                             "env": spec["containers"][0]["env"]
