@@ -116,35 +116,41 @@ class Deployment(KubeObject):
         pod = Pod(pod_definition, self.kubectl)
         pod.execute()
         
-    def execute_job(self, name, command, ttlSeconds=30, backoffLimit=0, **extra_overrides):
+    def execute_job(self, name, command, ttlSeconds=30, backoffLimit=0,
+                     pod_overrides=None, **extra_overrides):
         spec = copy.deepcopy(self.definition["spec"]["template"]["spec"])
         id = str(uuid.uuid4())[:8]
-        
+        job_name = f"{self.name}-{name}-{id}"
+
+        spec["restartPolicy"] = "Never"
+        container = spec["containers"][0]
+        container["name"] = job_name
+        container["command"] = command
+        # Probes don't make sense for a one-shot Job: the container never serves
+        # the Deployment's health-check endpoint, so an inherited livenessProbe
+        # (or readiness/startup probe) could get it killed mid-run.
+        for probe in ("livenessProbe", "readinessProbe", "startupProbe"):
+            container.pop(probe, None)
+        container.update(extra_overrides)
+
+        if pod_overrides:
+            spec.update(pod_overrides)
+
         job_definition = {
             "apiVersion": "batch/v1",
             "kind": "Job",
             "metadata": {
-                "name": f"{self.name}-{name}-{id}"
+                "name": job_name
             },
             "spec": {
                 "ttlSecondsAfterFinished": ttlSeconds,
                 "backoffLimit": backoffLimit,
                 "template": {
-                    "spec": {
-                        "restartPolicy": "Never",
-                        "containers": [{
-                            "name": f"{self.name}-{name}-{id}",
-                            "image": spec["containers"][0]["image"],
-                            "command": command,
-                            "env": spec["containers"][0]["env"]
-                        }]
-                    }
+                    "spec": spec
                 }
             }
-            
         }
-        job_definition["spec"]["template"]["spec"]["containers"][0].update(extra_overrides)
-        
+
         job = Job(job_definition, self.kubectl)
         job.execute()
         
