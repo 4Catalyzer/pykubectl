@@ -42,6 +42,9 @@ setup(
     install_requires=(
         'PyYAML >= 3.11',
     ),
+    extras_require={
+        'test': ('pytest',),
+    },
     cmdclass={
         'clean': system('rm -rf build dist *.egg-info'),
         'package': system('python setup.py sdist bdist_wheel'),

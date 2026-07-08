@@ -53,3 +53,10 @@ deployment.deploy(attempts=20)
 ## Why using kubectl instead of the REST APIs?
 
 kubectl has additional well tested functionalities that make it easier to interact with the APIs, especially with file definitions. In addition to that, porting automation script from bash it's easier, since the same functionalities are supported.
+
+## Running tests
+
+```sh
+pip install -e .[test]
+pytest
+```

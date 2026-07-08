@@ -1,5 +1,4 @@
 import json
-import unittest
 from unittest.mock import MagicMock
 
 from pykubectl.objects import Deployment
@@ -60,112 +59,105 @@ def _applied_job_definition(kubectl):
     return json.loads(raw)
 
 
-class ExecuteJobTests(unittest.TestCase):
-    def test_inherits_pod_level_scheduling_fields(self):
-        deployment, kubectl = _make_deployment()
+def test_inherits_pod_level_scheduling_fields():
+    deployment, kubectl = _make_deployment()
 
-        deployment.execute_job("migration", ["alembic", "upgrade", "head"])
+    deployment.execute_job("migration", ["alembic", "upgrade", "head"])
 
-        job = _applied_job_definition(kubectl)
-        pod_spec = job["spec"]["template"]["spec"]
+    job = _applied_job_definition(kubectl)
+    pod_spec = job["spec"]["template"]["spec"]
 
-        self.assertEqual(
-            pod_spec["nodeSelector"], {"qsi.io/executor-node-type": "service"}
-        )
-        self.assertEqual(pod_spec["serviceAccountName"], "executor")
-        self.assertEqual(pod_spec["volumes"], [{"name": "scratch", "emptyDir": {}}])
-        self.assertEqual(
-            pod_spec["tolerations"], [{"key": "dedicated", "operator": "Exists"}]
-        )
-        self.assertEqual(pod_spec["restartPolicy"], "Never")
-
-    def test_inherits_image_env_and_resources_and_sets_command(self):
-        deployment, kubectl = _make_deployment()
-
-        deployment.execute_job("migration", ["alembic", "upgrade", "head"])
-
-        container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
-            "containers"
-        ][0]
-
-        self.assertEqual(container["image"], "cex-api:abc123")
-        self.assertEqual(container["env"], [{"name": "ENV", "value": "staging"}])
-        self.assertEqual(
-            container["resources"], {"requests": {"cpu": "250m", "memory": "256Mi"}}
-        )
-        self.assertEqual(container["command"], ["alembic", "upgrade", "head"])
-
-    def test_strips_health_probes(self):
-        deployment, kubectl = _make_deployment()
-
-        deployment.execute_job("migration", ["alembic", "upgrade", "head"])
-
-        container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
-            "containers"
-        ][0]
-
-        self.assertNotIn("livenessProbe", container)
-        self.assertNotIn("readinessProbe", container)
-        self.assertNotIn("startupProbe", container)
-
-    def test_extra_overrides_apply_to_container(self):
-        deployment, kubectl = _make_deployment()
-
-        deployment.execute_job(
-            "migration",
-            ["alembic", "upgrade", "head"],
-            resources={"requests": {"cpu": "1"}},
-        )
-
-        container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
-            "containers"
-        ][0]
-
-        self.assertEqual(container["resources"], {"requests": {"cpu": "1"}})
-
-    def test_pod_overrides_apply_to_pod_spec(self):
-        deployment, kubectl = _make_deployment()
-
-        deployment.execute_job(
-            "migration",
-            ["alembic", "upgrade", "head"],
-            pod_overrides={"nodeSelector": {"qsi.io/executor-node-type": "compute"}},
-        )
-
-        pod_spec = _applied_job_definition(kubectl)["spec"]["template"]["spec"]
-
-        self.assertEqual(
-            pod_spec["nodeSelector"], {"qsi.io/executor-node-type": "compute"}
-        )
-
-    def test_ttl_and_backoff_limit_and_job_naming(self):
-        deployment, kubectl = _make_deployment()
-
-        deployment.execute_job(
-            "migration", ["alembic", "upgrade", "head"], ttlSeconds=86400, backoffLimit=2
-        )
-
-        job = _applied_job_definition(kubectl)
-
-        self.assertEqual(job["spec"]["ttlSecondsAfterFinished"], 86400)
-        self.assertEqual(job["spec"]["backoffLimit"], 2)
-        self.assertTrue(job["metadata"]["name"].startswith("cex-api-migration-"))
-        self.assertEqual(
-            job["spec"]["template"]["spec"]["containers"][0]["name"],
-            job["metadata"]["name"],
-        )
-
-    def test_does_not_mutate_original_deployment_definition(self):
-        deployment, kubectl = _make_deployment()
-
-        deployment.execute_job("migration", ["alembic", "upgrade", "head"])
-
-        original_container = deployment.definition["spec"]["template"]["spec"][
-            "containers"
-        ][0]
-        self.assertIn("livenessProbe", original_container)
-        self.assertEqual(original_container["name"], "cex-api")
+    assert pod_spec["nodeSelector"] == {"qsi.io/executor-node-type": "service"}
+    assert pod_spec["serviceAccountName"] == "executor"
+    assert pod_spec["volumes"] == [{"name": "scratch", "emptyDir": {}}]
+    assert pod_spec["tolerations"] == [{"key": "dedicated", "operator": "Exists"}]
+    assert pod_spec["restartPolicy"] == "Never"
 
 
-if __name__ == "__main__":
-    unittest.main()
+def test_inherits_image_env_and_resources_and_sets_command():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job("migration", ["alembic", "upgrade", "head"])
+
+    container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+
+    assert container["image"] == "cex-api:abc123"
+    assert container["env"] == [{"name": "ENV", "value": "staging"}]
+    assert container["resources"] == {"requests": {"cpu": "250m", "memory": "256Mi"}}
+    assert container["command"] == ["alembic", "upgrade", "head"]
+
+
+def test_strips_health_probes():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job("migration", ["alembic", "upgrade", "head"])
+
+    container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+
+    assert "livenessProbe" not in container
+    assert "readinessProbe" not in container
+    assert "startupProbe" not in container
+
+
+def test_extra_overrides_apply_to_container():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job(
+        "migration",
+        ["alembic", "upgrade", "head"],
+        resources={"requests": {"cpu": "1"}},
+    )
+
+    container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+
+    assert container["resources"] == {"requests": {"cpu": "1"}}
+
+
+def test_pod_overrides_apply_to_pod_spec():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job(
+        "migration",
+        ["alembic", "upgrade", "head"],
+        pod_overrides={"nodeSelector": {"qsi.io/executor-node-type": "compute"}},
+    )
+
+    pod_spec = _applied_job_definition(kubectl)["spec"]["template"]["spec"]
+
+    assert pod_spec["nodeSelector"] == {"qsi.io/executor-node-type": "compute"}
+
+
+def test_ttl_and_backoff_limit_and_job_naming():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job(
+        "migration", ["alembic", "upgrade", "head"], ttlSeconds=86400, backoffLimit=2
+    )
+
+    job = _applied_job_definition(kubectl)
+
+    assert job["spec"]["ttlSecondsAfterFinished"] == 86400
+    assert job["spec"]["backoffLimit"] == 2
+    assert job["metadata"]["name"].startswith("cex-api-migration-")
+    assert (
+        job["spec"]["template"]["spec"]["containers"][0]["name"]
+        == job["metadata"]["name"]
+    )
+
+
+def test_does_not_mutate_original_deployment_definition():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job("migration", ["alembic", "upgrade", "head"])
+
+    original_container = deployment.definition["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+    assert "livenessProbe" in original_container
+    assert original_container["name"] == "cex-api"
