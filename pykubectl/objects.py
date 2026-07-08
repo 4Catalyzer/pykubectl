@@ -116,35 +116,52 @@ class Deployment(KubeObject):
         pod = Pod(pod_definition, self.kubectl)
         pod.execute()
         
-    def execute_job(self, name, command, ttlSeconds=30, backoffLimit=0, **extra_overrides):
+    def execute_job(self, name, command, ttlSeconds=30, backoffLimit=0,
+                     pod_overrides=None, **extra_overrides):
         spec = copy.deepcopy(self.definition["spec"]["template"]["spec"])
         id = str(uuid.uuid4())[:8]
-        
+        job_name = f"{self.name}-{name}-{id}"
+
+        spec["restartPolicy"] = "Never"
+        container = spec["containers"][0]
+        container["name"] = job_name
+        container["command"] = command
+        container.update(extra_overrides)
+        # Probes don't make sense for a one-shot Job: the container never serves
+        # the Deployment's health-check endpoint, so an inherited livenessProbe
+        # (or readiness/startup probe) could get it killed mid-run. Strip these
+        # last so extra_overrides can't reintroduce one.
+        for probe in ("livenessProbe", "readinessProbe", "startupProbe"):
+            container.pop(probe, None)
+
+        if pod_overrides:
+            if "containers" in pod_overrides:
+                raise ValueError(
+                    "pod_overrides cannot override 'containers'; use "
+                    "extra_overrides for container-level changes instead."
+                )
+            spec.update(pod_overrides)
+            # A Job's pod template must never use restartPolicy "Always"; this
+            # method's contract is "Never" specifically (retries are handled
+            # by backoffLimit), so re-enforce it in case pod_overrides touched
+            # restartPolicy.
+            spec["restartPolicy"] = "Never"
+
         job_definition = {
             "apiVersion": "batch/v1",
             "kind": "Job",
             "metadata": {
-                "name": f"{self.name}-{name}-{id}"
+                "name": job_name
             },
             "spec": {
                 "ttlSecondsAfterFinished": ttlSeconds,
                 "backoffLimit": backoffLimit,
                 "template": {
-                    "spec": {
-                        "restartPolicy": "Never",
-                        "containers": [{
-                            "name": f"{self.name}-{name}-{id}",
-                            "image": spec["containers"][0]["image"],
-                            "command": command,
-                            "env": spec["containers"][0]["env"]
-                        }]
-                    }
+                    "spec": spec
                 }
             }
-            
         }
-        job_definition["spec"]["template"]["spec"]["containers"][0].update(extra_overrides)
-        
+
         job = Job(job_definition, self.kubectl)
         job.execute()
         
