@@ -119,6 +119,22 @@ def test_extra_overrides_apply_to_container():
     assert container["resources"] == {"requests": {"cpu": "1"}}
 
 
+def test_extra_overrides_cannot_reintroduce_a_stripped_probe():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job(
+        "migration",
+        ["alembic", "upgrade", "head"],
+        livenessProbe={"httpGet": {"path": "/health", "port": 8080}},
+    )
+
+    container = _applied_job_definition(kubectl)["spec"]["template"]["spec"][
+        "containers"
+    ][0]
+
+    assert "livenessProbe" not in container
+
+
 def test_pod_overrides_apply_to_pod_spec():
     deployment, kubectl = _make_deployment()
 
@@ -131,6 +147,35 @@ def test_pod_overrides_apply_to_pod_spec():
     pod_spec = _applied_job_definition(kubectl)["spec"]["template"]["spec"]
 
     assert pod_spec["nodeSelector"] == {"qsi.io/executor-node-type": "compute"}
+
+
+def test_pod_overrides_cannot_override_containers():
+    deployment, kubectl = _make_deployment()
+
+    try:
+        deployment.execute_job(
+            "migration",
+            ["alembic", "upgrade", "head"],
+            pod_overrides={"containers": [{"name": "hijacked"}]},
+        )
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("expected ValueError for pod_overrides['containers']")
+
+
+def test_pod_overrides_cannot_change_restart_policy():
+    deployment, kubectl = _make_deployment()
+
+    deployment.execute_job(
+        "migration",
+        ["alembic", "upgrade", "head"],
+        pod_overrides={"restartPolicy": "OnFailure"},
+    )
+
+    pod_spec = _applied_job_definition(kubectl)["spec"]["template"]["spec"]
+
+    assert pod_spec["restartPolicy"] == "Never"
 
 
 def test_ttl_and_backoff_limit_and_job_naming():

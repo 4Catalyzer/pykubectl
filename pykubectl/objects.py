@@ -126,15 +126,26 @@ class Deployment(KubeObject):
         container = spec["containers"][0]
         container["name"] = job_name
         container["command"] = command
+        container.update(extra_overrides)
         # Probes don't make sense for a one-shot Job: the container never serves
         # the Deployment's health-check endpoint, so an inherited livenessProbe
-        # (or readiness/startup probe) could get it killed mid-run.
+        # (or readiness/startup probe) could get it killed mid-run. Strip these
+        # last so extra_overrides can't reintroduce one.
         for probe in ("livenessProbe", "readinessProbe", "startupProbe"):
             container.pop(probe, None)
-        container.update(extra_overrides)
 
         if pod_overrides:
+            if "containers" in pod_overrides:
+                raise ValueError(
+                    "pod_overrides cannot override 'containers'; use "
+                    "extra_overrides for container-level changes instead."
+                )
             spec.update(pod_overrides)
+            # A Job's pod template must never use restartPolicy "Always"; this
+            # method's contract is "Never" specifically (retries are handled
+            # by backoffLimit), so re-enforce it in case pod_overrides touched
+            # restartPolicy.
+            spec["restartPolicy"] = "Never"
 
         job_definition = {
             "apiVersion": "batch/v1",
